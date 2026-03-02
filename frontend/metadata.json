@@ -1,0 +1,5 @@
+{
+  "name": "Schedule Builder",
+  "description": "A university course scheduling project with drag-and-drop, conflict detection, and blocked time.",
+  "requestFramePermissions": []
+}

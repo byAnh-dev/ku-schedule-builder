@@ -29,49 +29,51 @@ def scrape_course(course_code):
     web_data = BeautifulSoup(response.text, "html.parser")
     tableExtract = web_data.table.find_all("tr", class_= None, id_ = None)
     i = 1
-    classInfo = [] #Contains all the courses
-    course = {}#Contain info of 1 course
+    classInfo = []
+    course = {}
     for classSection in tableExtract:
-        classList = {}
+        classList = []
         try:
-            if i % 5 == 1: #Read the first line - Take out courseCode, courseName, creditHours
+            if i % 5 == 1:
                 if classSection.h3:
                     courseCode = classSection.h3.getText(strip = True)
-                    course.update({"CourseCode":courseCode})
-                
+                    parts = courseCode.split(" ", 1)
+                    course["id"] = courseCode
+                    course["subject"] = parts[0] if len(parts) > 0 else ""
+                    course["number"] = parts[1] if len(parts) > 1 else ""
+
                 courseOtherInfo = classSection.td.contents[2].get_text(strip=True).split("\n")
-                
+
                 courseName = courseOtherInfo[0].strip()
-                course.update({"CourseName":courseName})
-                
-                creditHours =courseOtherInfo[3].strip()
-                course.update({"CreditHours":creditHours})
-                
+                course["title"] = courseName
+
+                creditHours = courseOtherInfo[3].strip()
+                course["credits"] = int(creditHours) if creditHours.isdigit() else creditHours
+
                 if len(courseOtherInfo) == 9:
-                    courseSemester = courseOtherInfo[8].strip()
-                    course.update({"CourseSemester":courseSemester})
-                    course.update({"Honors":"No"})
+                    course["semesterId"] = courseOtherInfo[8].strip()
+                    course["honors"] = False
                 elif len(courseOtherInfo) == 11:
-                    courseSemester = courseOtherInfo[10].strip()
-                    course.update({"CourseSemester":courseSemester})
-                    course.update({"Honors":"Yes"})
+                    course["semesterId"] = courseOtherInfo[10].strip()
+                    course["honors"] = True
                 elif len(courseOtherInfo) == 7:
-                    course.update({"CourseSemester":"None"})
-                    course.update({"Honors":"No"})
+                    course["semesterId"] = ""
+                    course["honors"] = False
                 else:
                     print(f"Abnormal course:{courseOtherInfo}")
-            elif i % 5 == 2: #Read the second block - Take out courseDescription, Pre-Coreq and Satisfies
+
+            elif i % 5 == 2:
                 courseDescriptionTag = classSection.td.getText(strip=True)
                 if "Prerequisite:" in courseDescriptionTag:
                     courseDescription = courseDescriptionTag.split("Prerequisite:")[0].strip()
                 if "Satisfies:" in courseDescriptionTag:
                     courseDescription = courseDescriptionTag.split("Satisfies:")[0].strip()
-                course.update({"CourseDescription":courseDescription})
+                course["description"] = courseDescription
+
                 prerequisite = "N/A"
                 corequisite = "N/A"
                 satisfies = "N/A"
 
-                # Look for specific keywords in description
                 if "Prerequisite:" in courseDescriptionTag:
                     prerequisite = courseDescriptionTag.split("Prerequisite:")[1].split("\n")[0].strip()
                     if "Corequisite" in prerequisite:
@@ -79,52 +81,42 @@ def scrape_course(course_code):
                             prerequisite = prerequisite.split("Corequisite")[1].strip()
                         except Exception as e:
                             print(f"{prerequisite} with {e}")
-                course.update({"Prerequisite":prerequisite})
+                course["prerequisite"] = prerequisite
 
                 if "Corequisite:" in courseDescriptionTag:
                     corequisite = courseDescriptionTag.split("Corequisite:")[1].split("\n")[0].strip()
-                course.update({"Corequisite":corequisite})
+                course["corequisite"] = corequisite
 
                 if "Satisfies:" in courseDescriptionTag:
                     goalString = courseDescriptionTag.split("Satisfies:")[1].strip()
-                    
                     goals = goalString.split(",")
                     cleaned_goals = []
                     for goal in goals:
                         eachgoal = goal.split("\n")
                         eachgoal = [word.strip() for word in eachgoal if word.strip()]
                         cleaned_goals.append(" ".join(eachgoal))
-                    # Correct final string joining
                     satisfies = " & ".join(cleaned_goals)
-                course.update({"Satisfies":satisfies})
-                    
+                course["satisfies"] = satisfies
+
             elif i % 5 == 3:
-                # Extract all rows without filtering by class
                 classTable = classSection.table.find_all("tr")
 
-
-                classSchedule = {}  # Stores current section data
+                classSchedule = {}
                 classNumber = ""
 
                 for row in classTable:
                     cols = row.find_all("td")
 
-                    # Skip rows that don't have enough columns
                     if len(cols) < 2:
                         continue
 
-                    # Check if it's the first row (Section Information)
-                    if cols[0].text.strip() in ["LEC", "LBN", "DIS", "LAB"]:  
+                    if cols[0].text.strip() in ["LEC", "LBN", "DIS", "LAB"]:
                         sectionType = cols[0].text.strip()
                         instructorTag = cols[1].find("a")
                         instructor = instructorTag.text.strip() if instructorTag else "Unknown"
 
                         topicTag = cols[1].contents[2].get_text(strip=True).split(":")
-                        if len(topicTag) > 1:
-                            topic = topicTag[1].strip() 
-                        else:
-                            topic = "N/A"
-                        
+                        topic = topicTag[1].strip() if len(topicTag) > 1 else "N/A"
 
                         courseAttribute = "N/A"
                         courseAttributeTag = cols[2].contents
@@ -135,32 +127,30 @@ def scrape_course(course_code):
                                 courseAttribute = "Low Cost Course Materials"
 
                         classNumber = cols[3].find("strong").text.strip()
-                        seatsAvailable = cols[4].text.strip()
+                        seatAvailable = cols[4].text.strip()
 
-                        # Store section details
                         classSchedule = {
-                            "SectionType": sectionType,
-                            "Instructor": instructor,
-                            "Topic": topic,
-                            "CourseAttribute": courseAttribute,
-                            "SeatAvailable": seatsAvailable
+                            "id": classNumber,
+                            "type": sectionType,
+                            "instructor": instructor,
+                            "topic": topic,
+                            "courseAttribute": courseAttribute,
+                            "seatAvailable": seatAvailable,
                         }
 
-                    # Check if it's the second row (Time & Location)
                     elif "Notes" in cols[0].text.strip():
-                        
-                        Location = "OFF CMPS-K"
+                        location = "OFF CMPS-K"
                         locationTag = cols[1].span
-            
+
                         if locationTag:
                             if locationTag.find("img") or locationTag.get_text() == '':
                                 continue
                             else:
                                 locationText = locationTag.string.strip()
                                 if locationText == "ONLNE CRSE":
-                                    Location = "Online"
+                                    location = "Online"
                                 elif locationText == "KULC APPT":
-                                    Location = "By Appointment"
+                                    location = "By Appointment"
                                 else:
                                     campus = ''
                                     if len(cols[1].contents) == 11:
@@ -169,34 +159,33 @@ def scrape_course(course_code):
                                         campus = cols[1].contents[12].get_text(strip=True)
 
                                     classroom = locationTag.string.strip()
-                                    Location = classroom + " " + campus
+                                    location = classroom + " " + campus
 
-                        # Extract Meeting Time
                         Date = cols[1].contents[0].get_text(strip=True).split("\n")
                         Date = [str(date).strip() for date in Date]
+                        meetingTime = None
                         if len(Date) > 2:
                             Date.pop(2)
-                            Date = " ".join(Date)
+                            meetingTime = " ".join(Date)
                         elif Date[0] == "APPT" and locationTag == "ONLNE CRSE":
                             try:
-                                Date = cols[1].find("strong").string
+                                meetingTime = cols[1].find("strong").string
                             except:
-                                Date = "N/A"
-                        else:
-                            Date = "N/A"
+                                meetingTime = None
 
-                        # Update classSchedule with time & location
-                        classSchedule.update({"MeetingTime": Date, "Location": Location})
+                        classSchedule["meetingTime"] = meetingTime
+                        classSchedule["location"] = location
 
-                    # If we have both classNumber and classSchedule filled, save it
-                    if classNumber and "MeetingTime" in classSchedule and "Location" in classSchedule:
-                        classList[classNumber] = classSchedule
-                        classSchedule = {}  # Reset for next section
+                    if classNumber and "meetingTime" in classSchedule and "location" in classSchedule:
+                        classList.append(classSchedule.copy())
+                        classSchedule = {}
+                        classNumber = ""
 
-                # Store final class list
-                course.update({"Sections": classList})
+                course["components"] = classList
 
             elif i % 5 == 0:
+                if course.get("satisfies") and course["satisfies"] != "N/A":
+                    course["satisfied"] = [s.strip() for s in course["satisfies"].split(" & ")]
                 classInfo.append(course.copy())
                 course.clear()
             i += 1
@@ -204,6 +193,3 @@ def scrape_course(course_code):
             print(f"Error with {classSection}: {e}")
             continue
     return classInfo
-    #with open("courseDatabase.json","w") as file:
-    #    json.dump(classInfo, file, indent=4)
-

@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Halant:wght@400;600;700&family=Public+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-portal-bg: #FFFFFF;
+  --color-portal-surface: #FFFFFF;
+  --color-portal-header: #E2E6F0;
+  --color-portal-border: #CCCCCC;
+  --color-portal-border-light: #E5E5E5;
+  --color-portal-toolbar: #E2E8E7;
+  --color-portal-text: #333333;
+  --color-portal-text-secondary: #555555;
+  --color-portal-blue: #0051BA;
+  --color-portal-utility: #3F8ADC;
+  --color-portal-danger: #DC433F;
+  --color-portal-title: #003466;
+
+  --font-sans: "Halyard Display", "Halyard Text", "Halyard", "Public Sans", Arial, Helvetica, sans-serif;
+  --font-serif: "Halant", serif;
+  
+  --radius-portal: 0px;
+  --radius-portal-btn: 2px;
+}
+
+@layer base {
+  body {
+    @apply bg-portal-bg text-portal-text font-sans;
+  }
+}
