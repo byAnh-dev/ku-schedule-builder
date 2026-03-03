@@ -66,18 +66,37 @@ def login_and_save_state(state_path: Path) -> None:
     print("once you are redirected back to classes.ku.edu.\n")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=False,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
+        # Prefer the real installed Chrome over Playwright's bundled Chromium.
+        # Real Chrome is trusted by KU SSO; bundled Chromium often gets a
+        # white screen or blank page on CAS-protected sites.
+        try:
+            browser = p.chromium.launch(
+                channel="chrome",
+                headless=False,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+        except Exception:
+            # Fall back to bundled Chromium if Chrome is not installed.
+            browser = p.chromium.launch(
+                headless=False,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+
+        context = browser.new_context(
+            # Mimic a real Chrome on Windows so the site doesn't flag automation.
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/133.0.0.0 Safari/537.36"
+            ),
         )
-        context = browser.new_context()
         # Extend the default navigation timeout for slow KU SSO redirects.
         context.set_default_navigation_timeout(90_000)
         page = context.new_page()
 
-        # Navigate; use "commit" so we don't block waiting for all assets —
-        # the SSO redirect chain is what matters, not full page load.
-        page.goto(SEARCH_URL, wait_until="commit", timeout=90_000)
+        # Navigate; wait for domcontentloaded so the page has a chance to
+        # start rendering before we check the URL.
+        page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=90_000)
 
         # Wait until the user finishes SSO and lands back on classes.ku.edu.
         # Give up to 3 minutes.
