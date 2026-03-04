@@ -61,53 +61,48 @@ def login_and_save_state(state_path: Path) -> None:
     """
     state_path.parent.mkdir(parents=True, exist_ok=True)
 
-    print("Opening browser for login…")
-    print("Log in through KU SSO. The script will save state automatically")
-    print("once you are redirected back to classes.ku.edu.\n")
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print("Opening browser…")
+    print()
+    print(f"  --> Paste this URL into the browser that opens:")
+    print(f"      {SEARCH_URL}")
+    print()
+    print("Log in through KU SSO. The script saves state automatically")
+    print("once you land back on classes.ku.edu (you have 5 minutes).\n")
 
     with sync_playwright() as p:
-        # Prefer the real installed Chrome over Playwright's bundled Chromium.
-        # Real Chrome is trusted by KU SSO; bundled Chromium often gets a
-        # white screen or blank page on CAS-protected sites.
+        # Try real Chrome first; fall back to bundled Chromium.
         try:
-            browser = p.chromium.launch(
-                channel="chrome",
-                headless=False,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
+            browser = p.chromium.launch(channel="chrome", headless=False)
         except Exception:
-            # Fall back to bundled Chromium if Chrome is not installed.
-            browser = p.chromium.launch(
-                headless=False,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
+            browser = p.chromium.launch(headless=False)
 
         context = browser.new_context(
-            # Mimic a real Chrome on Windows so the site doesn't flag automation.
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/133.0.0.0 Safari/537.36"
             ),
         )
-        # Extend the default navigation timeout for slow KU SSO redirects.
-        context.set_default_navigation_timeout(90_000)
         page = context.new_page()
 
-        # Navigate; wait for domcontentloaded so the page has a chance to
-        # start rendering before we check the URL.
-        page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=90_000)
-
-        # Wait until the user finishes SSO and lands back on classes.ku.edu.
-        # Give up to 3 minutes.
+        # Try to navigate automatically; if it fails the user can paste the
+        # URL manually into the address bar — the wait_for_url below will
+        # still detect when they land on classes.ku.edu.
         try:
-            page.wait_for_url(
-                "**/classes.ku.edu/**",
-                wait_until="domcontentloaded",
-                timeout=180_000,
-            )
+            page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=20_000)
         except PlaywrightTimeout:
-            print("Timed out waiting for login. Please try again.", file=sys.stderr)
+            print("Auto-navigation timed out — paste the URL above into the")
+            print("address bar and complete the login manually.\n")
+
+        # Wait up to 5 minutes for the user to finish SSO.
+        print("Waiting for you to complete login…")
+        try:
+            page.wait_for_url("**/classes.ku.edu/**", timeout=300_000)
+        except PlaywrightTimeout:
+            print("Timed out (5 min). Please re-run --login and try again.",
+                  file=sys.stderr)
             browser.close()
             sys.exit(1)
 
@@ -122,7 +117,7 @@ def login_and_save_state(state_path: Path) -> None:
         context.storage_state(path=str(state_path))
         browser.close()
 
-    print(f"Session saved to {state_path}")
+    print(f"\nSession saved to {state_path}")
 
 
 def _session_looks_expired(html: str) -> bool:
