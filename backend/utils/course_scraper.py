@@ -442,6 +442,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Filter courses by text (e.g. 'EECS 388'). Narrows server response, speeds up testing.",
     )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Add this term to the existing database instead of overwriting it.",
+    )
     return parser
 
 
@@ -465,7 +470,22 @@ if __name__ == "__main__":
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(courses, f, indent=2, ensure_ascii=False)
 
-    print(f"Wrote {len(courses)} courses to {out_path}")
+    # Load existing semesters if --append, otherwise start fresh.
+    semesters_data: dict[str, list] = {}
+    if args.append and out_path.exists():
+        with open(out_path, encoding="utf-8") as f:
+            existing = json.load(f)
+        if isinstance(existing, dict) and "semesters" in existing:
+            semesters_data = existing["semesters"]
+        elif isinstance(existing, dict) and "term" in existing:
+            # Migrate single-term format.
+            semesters_data = {existing["term"]: existing.get("courses", [])}
+
+    semesters_data[args.term] = courses
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump({"semesters": semesters_data}, f, indent=2, ensure_ascii=False)
+
+    n_terms = len(semesters_data)
+    print(f"Wrote {len(courses)} courses for term {args.term} to {out_path} ({n_terms} term(s) total)")

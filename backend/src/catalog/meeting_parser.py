@@ -25,7 +25,7 @@ _ONE_CHAR: dict[str, str] = {
 
 _MEETING_RE = re.compile(
     r"^(?P<days>[A-Za-z]+)\s+"
-    r"(?P<sh>\d{1,2}):(?P<sm>\d{2})\s*-\s*"
+    r"(?P<sh>\d{1,2}):(?P<sm>\d{2})(?:\s*(?:AM|PM))?\s*-\s*"
     r"(?P<eh>\d{1,2}):(?P<em>\d{2})\s*"
     r"(?P<meridiem>AM|PM)$"
 )

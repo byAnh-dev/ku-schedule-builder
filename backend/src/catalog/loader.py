@@ -15,8 +15,9 @@ from src.catalog.semesters import term_code_to_label, term_code_to_semester_id
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 _DB_PATH = os.path.join(_BACKEND_DIR, "courseDatabase.json")
 
-# Term code for the scraped dataset. Change this when a new scrape is done.
-_TERM_CODE = "4252"  # Spring 2025
+# Fallback term code if the JSON file doesn't embed one.
+# Override via KU_TERM_CODE env var or by re-scraping (which embeds the term).
+_DEFAULT_TERM_CODE = os.environ.get("KU_TERM_CODE", "4262")
 
 # ---------------------------------------------------------------------------
 # In-memory store (populated once at startup)
@@ -93,53 +94,47 @@ def _generate_section_label(index: int, sec_type: str) -> str:
 
 
 def _transform_course(raw: dict[str, Any], semester_id: str) -> dict[str, Any] | None:
-    """Transform one raw course dict into the frontend Course shape."""
-    code = _normalise_course_code(raw.get("CourseCode"))
+    """Transform one raw scraped course dict into the frontend Course shape."""
+    code = _normalise_course_code(raw.get("id"))
     if not code:
         return None
 
-    # Split "SUBJECT NUMBER" into parts
     parts = code.split(" ", 1)
     subject = parts[0]
     number = parts[1] if len(parts) > 1 else ""
 
-    # Parse credits
-    credits_raw = _null(raw.get("CreditHours"))
+    credits_raw = raw.get("credits")
     credits: int | None = None
-    if credits_raw and str(credits_raw).isdigit():
-        credits = int(credits_raw)
+    try:
+        credits = int(credits_raw) if credits_raw is not None else None
+    except (ValueError, TypeError):
+        pass
 
-    # Clean description and prerequisites (strip "Prerequisite:" / "Satisfies:" prefixes)
-    desc = _null(raw.get("CourseDescription"))
-    prereq = _null(raw.get("Prerequisite"))
+    desc = _null(raw.get("description"))
+    prereq = _null(raw.get("prerequisite"))
 
-    # Build components from Sections dict
-    sections_raw: dict[str, Any] = raw.get("Sections") or {}
-
-    # Group by type to assign sequential labels per type
-    by_type: dict[str, list[tuple[str, dict[str, Any]]]] = {}
-    for crn, sec in sections_raw.items():
-        sec_type = _map_section_type(sec.get("SectionType"))
-        by_type.setdefault(sec_type, []).append((crn, sec))
-
-    # Sort each type group by CRN for deterministic ordering
-    for sec_type in by_type:
-        by_type[sec_type].sort(key=lambda t: t[0])
+    # Build components from the scraped components list, grouped by type
+    # so we can assign sequential labels (001, 002 … / L01, L02 …).
+    raw_components: list[dict[str, Any]] = raw.get("components") or []
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for comp in raw_components:
+        sec_type = _map_section_type(comp.get("type"))
+        by_type.setdefault(sec_type, []).append(comp)
 
     components: list[dict[str, Any]] = []
     for sec_type, group in sorted(by_type.items()):
-        for idx, (crn, sec) in enumerate(group, start=1):
+        for idx, comp in enumerate(group, start=1):
             label = _generate_section_label(idx, sec_type)
             comp_id = f"{code}-{sec_type}-{label}"
-            meetings = parse_meeting_time(sec.get("MeetingTime"))
+            meetings = parse_meeting_time(comp.get("meetingTime"))
             components.append(
                 {
                     "id": comp_id,
                     "type": sec_type,
                     "section": label,
                     "meetings": meetings,
-                    "instructor": _null(sec.get("Instructor")),
-                    "location": _null(sec.get("Location")),
+                    "instructor": _null(comp.get("instructor")),
+                    "location": _null(comp.get("location")),
                 }
             )
 
@@ -147,7 +142,7 @@ def _transform_course(raw: dict[str, Any], semester_id: str) -> dict[str, Any] |
         "id": code,
         "subject": subject,
         "number": number,
-        "title": _null(raw.get("CourseName")) or code,
+        "title": _null(raw.get("title")) or code,
         "semesterId": semester_id,
         "components": components,
     }
@@ -170,28 +165,49 @@ def load_catalog() -> None:
     """
     Load and transform courseDatabase.json into the in-memory catalog.
     Idempotent — safe to call multiple times (re-reads and replaces the store).
+
+    Supported JSON formats (all three are handled for backwards compatibility):
+      1. {"semesters": {"4262": [...], "4266": [...]}}  ← multi-term (current)
+      2. {"term": "4262", "courses": [...]}              ← single-term
+      3. [...]                                           ← legacy bare list
     """
     global _catalog, _search_index, _semesters
 
-    semester_id = term_code_to_semester_id(_TERM_CODE)
-    label = term_code_to_label(_TERM_CODE)
-
     with open(_DB_PATH, encoding="utf-8") as f:
-        raw_data: list[dict[str, Any]] = json.load(f)
+        payload = json.load(f)
 
-    courses: list[dict[str, Any]] = []
-    for raw in raw_data:
-        course = _transform_course(raw, semester_id)
-        if course:
-            courses.append(course)
+    # Normalise to {term_code: [raw_courses]} regardless of format.
+    if isinstance(payload, dict) and "semesters" in payload:
+        raw_by_term: dict[str, list] = payload["semesters"]
+    elif isinstance(payload, dict) and "term" in payload:
+        raw_by_term = {payload["term"]: payload.get("courses", [])}
+    else:
+        raw_by_term = {_DEFAULT_TERM_CODE: payload if isinstance(payload, list) else []}
 
-    _catalog = {semester_id: courses}
-    _search_index = {
-        semester_id: [
+    new_catalog: dict[str, list[dict[str, Any]]] = {}
+    new_search_index: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    new_semesters: list[dict[str, str]] = []
+
+    # Sort by term code so semesters appear in chronological order.
+    for term_code in sorted(raw_by_term.keys()):
+        semester_id = term_code_to_semester_id(term_code)
+        label = term_code_to_label(term_code)
+
+        courses: list[dict[str, Any]] = []
+        for raw in raw_by_term[term_code]:
+            course = _transform_course(raw, semester_id)
+            if course:
+                courses.append(course)
+
+        new_catalog[semester_id] = courses
+        new_search_index[semester_id] = [
             (c["id"].replace(" ", "").lower(), c) for c in courses
         ]
-    }
-    _semesters = [{"id": semester_id, "label": label}]
+        new_semesters.append({"id": semester_id, "label": label})
+
+    _catalog = new_catalog
+    _search_index = new_search_index
+    _semesters = new_semesters
 
 
 def get_semesters() -> list[dict[str, str]]:
