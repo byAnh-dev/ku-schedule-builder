@@ -92,8 +92,8 @@ def login_and_save_state(state_path: Path) -> None:
         # still detect when they land on classes.ku.edu.
         try:
             page.goto(SEARCH_URL, wait_until="domcontentloaded", timeout=20_000)
-        except PlaywrightTimeout:
-            print("Auto-navigation timed out — paste the URL above into the")
+        except Exception:
+            print("Auto-navigation failed — paste the URL above into the")
             print("address bar and complete the login manually.\n")
 
         # Wait up to 5 minutes for the user to finish SSO.
