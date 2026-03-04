@@ -98,31 +98,12 @@ def login_and_save_state(state_path: Path) -> None:
             print("Auto-navigation failed — paste the URL above into the")
             print("address bar and complete the login manually.\n")
 
-        # Poll page.url every second until we land on classes.ku.edu.
-        # wait_for_url() breaks on KU's multi-step SSO redirect chain because
-        # the frame gets detached mid-redirect; polling avoids that entirely.
-        print("Waiting for you to complete login…")
-        deadline = time.time() + 300  # 5 minutes
-        landed = False
-        while time.time() < deadline:
-            try:
-                current = page.url
-                if (
-                    "classes.ku.edu" in current
-                    and "Login.action" not in current
-                    and "cas" not in current.lower()
-                ):
-                    landed = True
-                    break
-            except Exception:
-                pass  # page may be mid-navigation
-            time.sleep(1)
-
-        if not landed:
-            print("Timed out (5 min). Please re-run --login and try again.",
-                  file=sys.stderr)
-            browser.close()
-            sys.exit(1)
+        # Hand control to the user — no URL detection needed.
+        # Once they can see instructor names on the page, they press Enter.
+        try:
+            input("Finish logging in, then press Enter here to save and close... ")
+        except EOFError:
+            pass  # non-interactive shell
 
         context.storage_state(path=str(state_path))
         browser.close()
