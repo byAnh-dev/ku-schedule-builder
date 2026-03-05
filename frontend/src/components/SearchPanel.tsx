@@ -66,11 +66,19 @@ export function SearchPanel() {
           {results.map((course) => {
             const isAdded = selectedCourses.some((c) => c.id === course.id);
 
+            const totalSections = course.components.length;
+            const fullSections = course.components.filter(c => c.seatAvailable === "Full" || c.seatAvailable === 0).length;
+            const openSections = totalSections - fullSections;
+            const availBadge = fullSections === 0 ? null : fullSections === totalSections
+              ? <span className="text-[11px] text-portal-danger font-semibold">All sections full</span>
+              : <span className="text-[11px] text-amber-600 font-semibold">{openSections}/{totalSections} sections open</span>;
+
             return (
               <Card key={course.id} className="p-[12px] flex items-center justify-between hover:bg-slate-50 transition-colors border-portal-border">
                 <div>
                   <h4 className="font-bold text-portal-text">{course.id}</h4>
                   <p className="text-[14px] text-portal-text-secondary">{course.title}</p>
+                  {availBadge}
                 </div>
                 <Button
                   size="sm"

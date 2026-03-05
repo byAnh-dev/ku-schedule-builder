@@ -117,7 +117,7 @@ export default function App() {
       onDragOver={handleDragOver} 
       onDragEnd={handleDragEnd}
     >
-      <div className="min-h-screen bg-portal-bg text-portal-text font-sans flex flex-col">
+      <div className="h-screen bg-portal-bg text-portal-text font-sans flex flex-col overflow-hidden">
         
         <header className="flex-none flex justify-between items-center bg-portal-surface p-4 border-b border-portal-border">
           <h1 className="text-[22px] font-serif font-bold text-portal-title m-0">Schedule Builder</h1>
@@ -144,8 +144,8 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 p-[8px]">
-          <div className="flex flex-col xl:flex-row gap-4 max-w-full mx-auto min-h-[calc(100vh-80px)] xl:h-[calc(100vh-80px)]">
+        <div className="flex-1 min-h-0 p-[8px] flex flex-col">
+          <div className="flex flex-col xl:flex-row gap-4 w-full flex-1 min-h-0">
             
             {/* Left Sidebar */}
             <div className="w-full xl:w-[400px] flex-none flex flex-col gap-4 xl:overflow-y-auto pr-2">
@@ -200,6 +200,25 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        <footer className="flex-none flex items-center justify-center gap-1.5 py-2 border-t border-portal-border text-[11px] text-portal-text-secondary bg-portal-header">
+          <span>Found a bug?</span>
+          <a
+            href="https://github.com/byAnh-dev/KU-Schedule_builder/issues/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-portal-blue hover:underline font-semibold"
+          >
+            Report it on GitHub
+          </a>
+          <span>or</span>
+          <a
+            href="mailto:anh.hoang@ku.edu"
+            className="text-portal-blue hover:underline font-semibold"
+          >
+            email me
+          </a>
+        </footer>
       </div>
 
       <DragOverlay>

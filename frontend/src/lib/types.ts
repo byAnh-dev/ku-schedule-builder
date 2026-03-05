@@ -21,6 +21,8 @@ export interface CourseComponent {
   rmpRating?: number;
   rmpDifficulty?: number;
   rmpUrl?: string;
+  seatAvailable?: number | "Full" | null;
+  crn?: string;
 }
 
 export interface Course {
@@ -55,6 +57,7 @@ export interface ScheduledMeeting {
   endMinutes: number;
   location?: string;
   instructor?: string;
+  seatAvailable?: number | "Full" | null;
 }
 
 export interface Conflict {

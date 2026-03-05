@@ -56,7 +56,7 @@ export const useScheduleStore = create<ScheduleState>()(
           const defaultLec = lecSections.length > 0 ? lecSections[0].id : "";
 
           return {
-            selectedCourses: [...state.selectedCourses, course],
+            selectedCourses: [course, ...state.selectedCourses],
             selectedLectureSectionByCourseId: {
               ...state.selectedLectureSectionByCourseId,
               [course.id]: defaultLec,
@@ -167,6 +167,7 @@ export const useScheduledMeetings = (): ScheduledMeeting[] => {
               endMinutes: timeToMinutes(m.endTime),
               location: comp.location,
               instructor: comp.instructor,
+              seatAvailable: comp.seatAvailable,
             });
           });
         });

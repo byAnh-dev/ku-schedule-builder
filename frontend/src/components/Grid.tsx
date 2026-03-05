@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from "uuid";
 
 const DAYS: DayOfWeek[] = ["M", "T", "W", "Th", "F"];
 
+type GhostMeeting = ScheduledMeeting & { isHighlighted: boolean; isFull: boolean; seatAvailable?: number | "Full" | null };
+
 export function Grid({ 
   activeDragCourseId, 
   activeDragType,
@@ -61,14 +63,15 @@ export function Grid({
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
   // Compute ghost meetings for the dragged course
-  let ghostMeetings: (ScheduledMeeting & { isHighlighted: boolean })[] = [];
+  let ghostMeetings: GhostMeeting[] = [];
   const draggedCourse = activeDragCourseId ? selectedCourses.find(c => c.id === activeDragCourseId) : null;
 
   if (draggedCourse) {
     const targetType = activeDragType || "LEC";
     const isLecTarget = targetType === "LEC";
     const sections = draggedCourse.components.filter(s => isLecTarget ? s.type === "LEC" : s.type !== "LEC");
-    
+
+    // Highlight the best section based on hovered position
     let bestSectionId: string | null = null;
     if (hoveredDay) {
       const otherMeetings = meetings.filter(m => m.courseId !== draggedCourse.id || (isLecTarget ? m.type !== "LEC" : m.type === "LEC"));
@@ -78,6 +81,7 @@ export function Grid({
 
     sections.forEach(sec => {
       const isHighlighted = sec.id === bestSectionId;
+      const isFull = sec.seatAvailable === "Full" || sec.seatAvailable === 0;
       sec.meetings.forEach(m => {
         m.days.forEach(day => {
           ghostMeetings.push({
@@ -94,6 +98,8 @@ export function Grid({
             location: sec.location,
             instructor: sec.instructor,
             isHighlighted,
+            isFull,
+            seatAvailable: sec.seatAvailable,
           });
         });
       });
@@ -161,7 +167,7 @@ function DayColumn({
 }: {
   day: DayOfWeek;
   meetings: ScheduledMeeting[];
-  ghostMeetings: (ScheduledMeeting & { isHighlighted: boolean })[];
+  ghostMeetings: GhostMeeting[];
   blockedTimes: BlockedTime[];
   conflicts: any[];
   isBlockingMode: boolean;
@@ -241,9 +247,9 @@ function MeetingBlock({ meeting, hasConflict }: { meeting: ScheduledMeeting; has
   return (
     <div
       className={`absolute left-[1px] right-[1px] rounded-none p-1.5 text-[12px] overflow-hidden shadow-none border z-20 group ${
-        hasConflict
+        hasConflict || meeting.seatAvailable === "Full" || meeting.seatAvailable === 0
           ? "bg-portal-danger border-portal-danger text-white"
-          : isLec 
+          : isLec
             ? "bg-portal-blue border-portal-blue text-white"
             : "bg-portal-utility border-portal-utility text-white"
       }`}
@@ -264,8 +270,21 @@ function MeetingBlock({ meeting, hasConflict }: { meeting: ScheduledMeeting; has
         <X className="h-3 w-3" />
       </button>
 
-      <div className="font-bold leading-tight pr-4">
-        {meeting.courseId}
+      <div className="flex items-start justify-between leading-tight pr-4">
+        <span className="font-bold">{meeting.courseId}</span>
+        {meeting.seatAvailable != null && (
+          <span className={`text-[9px] font-bold ml-1 flex-shrink-0 ${
+            meeting.seatAvailable === "Full" || meeting.seatAvailable === 0
+              ? "opacity-90"
+              : meeting.seatAvailable <= 5
+                ? "opacity-90"
+                : "opacity-75"
+          }`}>
+            {meeting.seatAvailable === "Full" || meeting.seatAvailable === 0
+              ? "FULL"
+              : `${meeting.seatAvailable} seats`}
+          </span>
+        )}
       </div>
       {meeting.location && (
         <div className="text-[10px] opacity-90 leading-tight truncate">
@@ -281,26 +300,43 @@ function MeetingBlock({ meeting, hasConflict }: { meeting: ScheduledMeeting; has
   );
 }
 
-function GhostMeetingBlock({ meeting }: { meeting: ScheduledMeeting & { isHighlighted: boolean } }) {
+function GhostMeetingBlock({ meeting }: { meeting: GhostMeeting }) {
   const startMins = meeting.startMinutes - START_HOUR * 60;
   const durationMins = meeting.endMinutes - meeting.startMinutes;
-  
+
   const top = (startMins / MIN_PER_CELL) * 1.5;
   const height = (durationMins / MIN_PER_CELL) * 1.5;
 
   const isLec = meeting.type === "LEC";
+  const { isFull, isHighlighted } = meeting;
+
+  let className: string;
+  if (isFull && isHighlighted) {
+    // Single full section — highlight but show FULL badge
+    className = isLec
+      ? "bg-portal-blue/20 border-2 border-portal-blue text-portal-blue z-10 shadow-none scale-[1.02]"
+      : "bg-portal-utility/20 border-2 border-portal-utility text-portal-utility z-10 shadow-none scale-[1.02]";
+  } else if (isFull) {
+    // Full section among multiple — red stripe
+    className = "bg-portal-danger/10 border-portal-danger/40 border-dashed bg-stripe-full text-portal-danger z-0 opacity-60";
+  } else if (isHighlighted) {
+    className = isLec
+      ? "bg-portal-blue/20 border-2 border-portal-blue text-portal-blue z-10 shadow-none scale-[1.02]"
+      : "bg-portal-utility/20 border-2 border-portal-utility text-portal-utility z-10 shadow-none scale-[1.02]";
+  } else {
+    className = "bg-slate-100/50 border-portal-border border-dashed text-portal-text-secondary z-0";
+  }
 
   return (
     <div
-      className={`absolute left-[1px] right-[1px] rounded-none p-1.5 text-[12px] overflow-hidden border transition-all duration-200 ${
-        meeting.isHighlighted
-          ? isLec
-            ? "bg-portal-blue/20 border-2 border-portal-blue text-portal-blue z-10 shadow-none scale-[1.02]"
-            : "bg-portal-utility/20 border-2 border-portal-utility text-portal-utility z-10 shadow-none scale-[1.02]"
-          : "bg-slate-100/50 border-portal-border border-dashed text-portal-text-secondary z-0"
-      }`}
+      className={`absolute left-[1px] right-[1px] rounded-none p-1.5 text-[12px] overflow-hidden border transition-all duration-200 ${className}`}
       style={{ top: `${top}rem`, height: `${height}rem` }}
     >
+      {isFull && (
+        <span className="absolute top-0.5 right-0.5 bg-portal-danger text-white text-[8px] font-bold px-0.5 leading-tight">
+          FULL
+        </span>
+      )}
       <div className="font-bold leading-tight">
         {meeting.courseId}
       </div>

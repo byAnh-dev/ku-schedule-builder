@@ -2,9 +2,10 @@ import { useScheduleStore } from "../store/useScheduleStore";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Select } from "./ui/select";
-import { Trash2, Calendar, BookOpen, MapPin, User, ExternalLink, Star } from "lucide-react";
+import { Trash2, Calendar, BookOpen, MapPin, User, ExternalLink, Star, Users } from "lucide-react";
 import { formatMeetingPattern } from "../lib/schedule";
 import { useDraggable } from "@dnd-kit/core";
+import { CourseComponent } from "../lib/types";
 
 export function SelectedCoursesPanel() {
   const selectedCourses = useScheduleStore((s) => s.selectedCourses);
@@ -34,8 +35,8 @@ export function SelectedCoursesPanel() {
 
         return (
           <Card key={course.id} className="p-[12px] flex flex-col gap-[12px] border-portal-border hover:border-portal-blue transition-colors rounded-none">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between items-center">
                 <h4 className="font-bold text-portal-text flex items-center gap-2 m-0 text-[16px]">
                   {course.id}
                   {course.credits && (
@@ -44,26 +45,28 @@ export function SelectedCoursesPanel() {
                     </span>
                   )}
                 </h4>
-                <p className="text-[14px] text-portal-text-secondary font-bold leading-tight mt-1 m-0">{course.title}</p>
-                {course.description && (
-                  <p className="text-[12px] text-portal-text-secondary mt-1.5 leading-snug m-0">{course.description}</p>
-                )}
-                {course.prerequisites && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[12px] text-portal-text bg-portal-toolbar px-2 py-1 rounded-none border border-portal-border-light w-fit">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-portal-text-secondary hover:text-portal-danger hover:bg-portal-danger/10 -mt-1 -mr-1 h-8 w-8 rounded-none flex-shrink-0"
+                  onClick={() => removeCourse(course.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-[14px] text-portal-text-secondary font-bold leading-tight m-0">{course.title}</p>
+              {course.description && (
+                <p className="text-[12px] text-portal-text-secondary mt-0.5 leading-snug m-0">{course.description}</p>
+              )}
+              {course.prerequisites && (
+                <div className="mt-1 flex flex-col gap-1 text-[12px] text-portal-text bg-portal-toolbar px-2 py-1 rounded-none border border-portal-border-light">
+                  <div className="flex items-center gap-1.5">
                     <BookOpen className="h-3 w-3" />
                     <span className="font-bold uppercase tracking-wider">Prereq:</span>
-                    <span>{course.prerequisites}</span>
                   </div>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-portal-text-secondary hover:text-portal-danger hover:bg-portal-danger/10 -mt-1 -mr-1 h-8 w-8 rounded-none"
-                onClick={() => removeCourse(course.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+                  <span>{course.prerequisites}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-3 mt-1">
@@ -90,60 +93,17 @@ export function SelectedCoursesPanel() {
                         <option value="">Not scheduled</option>
                         {lecSections.map((lec) => (
                           <option key={lec.id} value={lec.id}>
-                            {lec.section} - {formatMeetingPattern(lec)}
+                            {lec.section} - {formatMeetingPattern(lec)}{lec.seatAvailable === "Full" ? " [FULL]" : lec.seatAvailable != null ? ` [${lec.seatAvailable} seats]` : ""}
                           </option>
                         ))}
                       </Select>
                     </div>
                     <DraggableComponentChip courseId={course.id} type="LEC" />
                   </div>
-                  {selectedLec && (
-                    <div className="flex flex-col gap-1.5 text-xs text-slate-500 mt-2 px-1">
-                      {(() => {
-                        const section = lecSections.find(l => l.id === selectedLec);
-                        if (!section) return null;
-                        return (
-                          <>
-                            {section.instructor && (
-                              <div className="flex items-center justify-between group">
-                                <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-slate-400" />
-                                  <span className="font-semibold text-slate-800">{section.instructor}</span>
-                                  {section.rmpRating && (
-                                    <div className="flex items-center gap-1 ml-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-bold text-[10px]">
-                                      <Star className="h-3 w-3 fill-emerald-500 text-emerald-500" />
-                                      {section.rmpRating.toFixed(1)}
-                                    </div>
-                                  )}
-                                  {section.rmpDifficulty && (
-                                    <span className="text-slate-400 text-[10px]">
-                                      Diff: <span className="text-slate-600">{section.rmpDifficulty.toFixed(1)}</span>
-                                    </span>
-                                  )}
-                                </div>
-                                {section.rmpUrl && (
-                                  <a 
-                                    href={section.rmpUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-ku-500 hover:text-ku-700 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]"
-                                  >
-                                    RMP <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                )}
-                              </div>
-                            )}
-                            {section.location && (
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-slate-400" />
-                                <span className="text-slate-600">{section.location}</span>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  )}
+                  {selectedLec && (() => {
+                    const section = lecSections.find(l => l.id === selectedLec);
+                    return section ? <SectionDetail section={section} /> : null;
+                  })()}
                 </div>
               )}
 
@@ -170,66 +130,92 @@ export function SelectedCoursesPanel() {
                         <option value="">Not scheduled</option>
                         {labSections.map((lab) => (
                           <option key={lab.id} value={lab.id}>
-                            {lab.section} - {formatMeetingPattern(lab)}
+                            {lab.section} - {formatMeetingPattern(lab)}{lab.seatAvailable === "Full" ? " [FULL]" : lab.seatAvailable != null ? ` [${lab.seatAvailable} seats]` : ""}
                           </option>
                         ))}
                       </Select>
                     </div>
                     <DraggableComponentChip courseId={course.id} type="LAB" />
                   </div>
-                  {selectedLab && (
-                    <div className="flex flex-col gap-1.5 text-xs text-slate-500 mt-2 px-1">
-                      {(() => {
-                        const section = labSections.find(l => l.id === selectedLab);
-                        if (!section) return null;
-                        return (
-                          <>
-                            {section.instructor && (
-                              <div className="flex items-center justify-between group">
-                                <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-slate-400" />
-                                  <span className="font-semibold text-slate-800">{section.instructor}</span>
-                                  {section.rmpRating && (
-                                    <div className="flex items-center gap-1 ml-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-bold text-[10px]">
-                                      <Star className="h-3 w-3 fill-emerald-500 text-emerald-500" />
-                                      {section.rmpRating.toFixed(1)}
-                                    </div>
-                                  )}
-                                  {section.rmpDifficulty && (
-                                    <span className="text-slate-400 text-[10px]">
-                                      Diff: <span className="text-slate-600">{section.rmpDifficulty.toFixed(1)}</span>
-                                    </span>
-                                  )}
-                                </div>
-                                {section.rmpUrl && (
-                                  <a 
-                                    href={section.rmpUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-ku-500 hover:text-ku-700 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-[10px]"
-                                  >
-                                    RMP <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                )}
-                              </div>
-                            )}
-                            {section.location && (
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-slate-400" />
-                                <span className="text-slate-600">{section.location}</span>
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  )}
+                  {selectedLab && (() => {
+                    const section = labSections.find(l => l.id === selectedLab);
+                    return section ? <SectionDetail section={section} /> : null;
+                  })()}
                 </div>
               )}
             </div>
           </Card>
         );
       })}
+    </div>
+  );
+}
+
+function SectionDetail({ section }: { section: CourseComponent }) {
+  const hasLeft = section.instructor || section.location;
+  const hasRight = section.seatAvailable != null;
+  if (!hasLeft && !hasRight) return null;
+
+  return (
+    <div className="flex gap-0 mt-2 px-1 border border-portal-border divide-x divide-portal-border">
+      {/* Left column: instructor + location */}
+      {hasLeft && (
+        <div className="flex-1 flex flex-col justify-center gap-1.5 text-xs text-slate-500 py-2 pr-3 min-w-0">
+          {section.instructor && (
+            <div className="flex items-center justify-between group">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <User className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                <span className="font-semibold text-slate-800 truncate">{section.instructor}</span>
+                {section.rmpRating && (
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-bold text-[10px] flex-shrink-0">
+                    <Star className="h-3 w-3 fill-emerald-500 text-emerald-500" />
+                    {section.rmpRating.toFixed(1)}
+                  </div>
+                )}
+              </div>
+              {section.rmpUrl && (
+                <a
+                  href={section.rmpUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ku-500 hover:text-ku-700 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] flex-shrink-0 ml-1"
+                >
+                  RMP <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          )}
+          {section.location && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+              <span className="text-slate-600 truncate">{section.location}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Right column: seat availability */}
+      {hasRight && (
+        <div className={`flex-shrink-0 flex flex-col items-center justify-center py-2 ${hasLeft ? "pl-3 pr-2" : "flex-1"}`}>
+          <Users className="h-3.5 w-3.5 text-slate-400 mb-0.5" />
+          {section.seatAvailable === "Full" ? (
+            <>
+              <span className="text-portal-danger font-bold text-[13px] leading-tight">FULL</span>
+              <span className="text-portal-danger text-[9px] leading-tight">no seats</span>
+            </>
+          ) : section.seatAvailable! <= 5 ? (
+            <>
+              <span className="text-amber-600 font-bold text-[16px] leading-tight">{section.seatAvailable}</span>
+              <span className="text-amber-600 text-[9px] leading-tight">seats left</span>
+            </>
+          ) : (
+            <>
+              <span className="text-slate-700 font-bold text-[16px] leading-tight">{section.seatAvailable}</span>
+              <span className="text-slate-400 text-[9px] leading-tight">seats</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
