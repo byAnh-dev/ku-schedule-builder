@@ -1,8 +1,8 @@
 # KU Schedule Builder
 
-A course schedule builder for University of Kansas students. Search for courses, pick lecture and lab sections, drag them onto a weekly grid, block off busy times, and instantly see any time conflicts — all in your browser.
+A course schedule builder for University of Kansas students. Search for courses, pick lecture and lab sections, drag them onto a weekly grid, block off busy times, and export it to your calendars.
 
-**Live site:** [ku-schedule-builder.vercel.app](https://ku-schedule-builder.vercel.app) *(update with your actual URL)*
+**Live site:** [ku-schedule-builder.vercel.app](https://ku-schedule-builder.vercel.app)
 
 ---
 
@@ -27,7 +27,7 @@ A course schedule builder for University of Kansas students. Search for courses,
 | Drag & drop | @dnd-kit/core |
 | Backend | Python, Flask |
 | Data | JSON course catalog (multi-semester) |
-| Hosting | Vercel (frontend), any Python host (backend) |
+| Hosting | Vercel (frontend), Oracle Cloud server (backend) |
 
 ---
 
