@@ -14,6 +14,7 @@ import { Select } from "./components/ui/select";
 import { Button } from "./components/ui/button";
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { WifiOff } from "lucide-react";
 
 export default function App() {
   const [semesters, setSemesters] = useState<Semester[]>([]);
@@ -120,7 +121,17 @@ export default function App() {
       onDragEnd={handleDragEnd}
     >
       <div className="h-screen bg-portal-bg text-portal-text font-sans flex flex-col overflow-y-auto xl:overflow-hidden">
-        
+        <aside
+          aria-label="Campus Wi-Fi notice"
+          className="flex-none flex items-start gap-3 border-b border-portal-blue bg-portal-header px-4 py-3 text-sm leading-6 text-portal-title"
+        >
+          <WifiOff aria-hidden="true" className="mt-1 h-4 w-4 shrink-0" />
+          <p className="min-w-0">
+            <strong>Course search is currently unavailable on JAYHAWK and eduroam Wi-Fi.</strong>{" "}
+            Semester and course data may not load while connected to these networks.
+          </p>
+        </aside>
+
         <header className="flex-none flex justify-between items-center bg-portal-surface p-4 border-b border-portal-border">
           <h1 className="text-[22px] font-serif font-bold text-portal-title m-0">Schedule Builder</h1>
           <div className="flex items-center gap-3">
